@@ -164,7 +164,7 @@ func (suite *LdapAuthenticationBackendSuite) SetupTest() {
 	suite.configuration.Ldap.Password = "password"
 	suite.configuration.Ldap.BaseDN = "base_dn"
 	suite.configuration.Ldap.UsernameAttribute = "uid"
-	suite.configuration.Ldap.UsersFilter = "(uid={input})"
+	suite.configuration.Ldap.UsersFilter = "({username_attribute}={input})"
 	suite.configuration.Ldap.GroupsFilter = "(cn={input})"
 }
 
@@ -248,10 +248,10 @@ func (suite *LdapAuthenticationBackendSuite) TestShouldSetDefaultRefreshInterval
 }
 
 func (suite *LdapAuthenticationBackendSuite) TestShouldRaiseWhenUsersFilterDoesNotContainEnclosingParenthesis() {
-	suite.configuration.Ldap.UsersFilter = "uid={input}"
+	suite.configuration.Ldap.UsersFilter = "{username_attribute}={input}"
 	ValidateAuthenticationBackend(&suite.configuration, suite.validator)
 	assert.Len(suite.T(), suite.validator.Errors(), 1)
-	assert.EqualError(suite.T(), suite.validator.Errors()[0], "The users filter should contain enclosing parenthesis. For instance uid={input} should be (uid={input})")
+	assert.EqualError(suite.T(), suite.validator.Errors()[0], "The users filter should contain enclosing parenthesis. For instance {username_attribute}={input} should be ({username_attribute}={input})")
 }
 
 func (suite *LdapAuthenticationBackendSuite) TestShouldRaiseWhenGroupsFilterDoesNotContainEnclosingParenthesis() {
@@ -261,8 +261,15 @@ func (suite *LdapAuthenticationBackendSuite) TestShouldRaiseWhenGroupsFilterDoes
 	assert.EqualError(suite.T(), suite.validator.Errors()[0], "The groups filter should contain enclosing parenthesis. For instance cn={input} should be (cn={input})")
 }
 
+func (suite *LdapAuthenticationBackendSuite) TestShouldRaiseWhenUsersFilterDoesNotContainUsernameAttribute() {
+	suite.configuration.Ldap.UsersFilter = "(&({mail_attribute}={input})(objectClass=person))"
+	ValidateAuthenticationBackend(&suite.configuration, suite.validator)
+	assert.Len(suite.T(), suite.validator.Errors(), 1)
+	assert.EqualError(suite.T(), suite.validator.Errors()[0], "Unable to detect {username_attribute} placeholder in users_filter, your configuration is broken. Please review configuration options listed at https://docs.authelia.com/configuration/authentication/ldap.html")
+}
+
 func (suite *LdapAuthenticationBackendSuite) TestShouldHelpDetectNoInputPlaceholder() {
-	suite.configuration.Ldap.UsersFilter = "(objectClass=person)"
+	suite.configuration.Ldap.UsersFilter = "(&({username_attribute}={mail_attribute})(objectClass=person))"
 	ValidateAuthenticationBackend(&suite.configuration, suite.validator)
 	assert.Len(suite.T(), suite.validator.Errors(), 1)
 	assert.EqualError(suite.T(), suite.validator.Errors()[0], "Unable to detect {input} placeholder in users_filter, your configuration might be broken. Please review configuration options listed at https://docs.authelia.com/configuration/authentication/ldap.html")
